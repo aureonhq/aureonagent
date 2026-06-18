@@ -153,7 +153,7 @@ export function buildFounderPlan(profile: FounderProfile): Plan {
       Google: ["投放英文出海服务关键词", "用行业落地页接流量", "对高意向线索做再营销"]
     },
     deck: [
-      "封面：FounderAI 生成的创业方案",
+      "封面：Aureon Agent 生成的创业方案",
       "问题：用户不知道如何从想法走到收入",
       "解决方案：AI Startup OS",
       "目标客户与市场",

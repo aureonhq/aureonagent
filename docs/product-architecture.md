@@ -1,8 +1,8 @@
-# FounderAI Product Architecture
+# Aureon Agent Product Architecture
 
 ## Positioning
 
-FounderAI is an AI-native startup operating system. It helps an individual founder or small team move from a raw idea to first revenue through AI-assisted project selection, business model design, MVP planning, website generation, acquisition planning, business-plan export, and broker marketplace matching.
+Aureon Agent is an AI-native startup operating system. It helps an individual founder or small team move from a raw idea to first revenue through AI-assisted project selection, business model design, MVP planning, website generation, acquisition planning, business-plan export, and broker marketplace matching.
 
 It is not a forum, news site, or course platform. The product surface is a workbench.
 

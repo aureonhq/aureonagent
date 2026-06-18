@@ -5,17 +5,17 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://978044309.github.io/founderai/"),
-  title: "FounderAI - AI Startup OS",
-  description: "FounderAI 通过 AI 帮助创业者从想法验证、商业模式和 MVP 规划走到第一笔收入。",
+  metadataBase: new URL("https://978044309.github.io/aureonagent/"),
+  title: "Aureon Agent - AI Startup OS",
+  description: "Aureon Agent 通过 AI 帮助创业者从想法验证、商业模式和 MVP 规划走到第一笔收入。",
   alternates: {
-    canonical: "https://978044309.github.io/founderai/"
+    canonical: "https://978044309.github.io/aureonagent/"
   },
   openGraph: {
-    title: "FounderAI - AI Startup OS",
+    title: "Aureon Agent - AI Startup OS",
     description: "从创业想法到第一笔收入的 AI 创业操作系统。",
-    url: "https://978044309.github.io/founderai/",
-    siteName: "FounderAI",
+    url: "https://978044309.github.io/aureonagent/",
+    siteName: "Aureon Agent",
     locale: "zh_CN",
     type: "website"
   },

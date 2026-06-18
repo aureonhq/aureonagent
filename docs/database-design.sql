@@ -1,4 +1,4 @@
--- FounderAI Supabase/PostgreSQL schema draft
+-- Aureon Agent Supabase/PostgreSQL schema draft
 
 create table public.profiles (
   id uuid primary key default gen_random_uuid(),

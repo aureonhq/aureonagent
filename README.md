@@ -1,6 +1,6 @@
-# FounderAI
+# Aureon Agent
 
-FounderAI is an AI-native startup operating system MVP for moving from founder profile to startup direction, business model, MVP route, website plan, acquisition plan, business-plan outline, and broker marketplace matching.
+Aureon Agent is an AI-native startup operating system MVP for moving from founder profile to startup direction, business model, MVP route, website plan, acquisition plan, business-plan outline, and broker marketplace matching.
 
 ## Run Locally
 

@@ -89,7 +89,7 @@ export default function Home() {
                 <Sparkles className="h-4 w-4" />
               </div>
               <div>
-                <div className="text-sm font-semibold">FounderAI</div>
+                <div className="text-sm font-semibold">Aureon Agent</div>
                 <div className="text-xs text-black/50 dark:text-white/45">AI Startup OS</div>
               </div>
             </div>

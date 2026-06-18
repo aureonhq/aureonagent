@@ -1,4 +1,4 @@
-name: Deploy FounderAI to GitHub Pages
+name: Deploy Aureon Agent to GitHub Pages
 
 on:
   push:
