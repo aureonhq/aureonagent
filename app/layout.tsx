@@ -5,16 +5,16 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://johnnyhuang958.github.io/founderai/"),
+  metadataBase: new URL("https://978044309.github.io/founderai/"),
   title: "FounderAI - AI Startup OS",
   description: "FounderAI 通过 AI 帮助创业者从想法验证、商业模式和 MVP 规划走到第一笔收入。",
   alternates: {
-    canonical: "https://johnnyhuang958.github.io/founderai/"
+    canonical: "https://978044309.github.io/founderai/"
   },
   openGraph: {
     title: "FounderAI - AI Startup OS",
     description: "从创业想法到第一笔收入的 AI 创业操作系统。",
-    url: "https://johnnyhuang958.github.io/founderai/",
+    url: "https://978044309.github.io/founderai/",
     siteName: "FounderAI",
     locale: "zh_CN",
     type: "website"
