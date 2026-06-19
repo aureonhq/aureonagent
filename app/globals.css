@@ -28,6 +28,16 @@ body {
   color: var(--foreground);
 }
 
+@layer components {
+  .primary { @apply inline-flex items-center gap-2 rounded-full bg-[#123d49] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#0b2f38]; }
+  .secondary { @apply inline-flex items-center gap-2 rounded-full border border-[#ced8d4] bg-white px-5 py-3 text-sm font-medium text-[#123d49]; }
+  .card { @apply rounded-2xl border border-[#e0e6e3] bg-white shadow-[0_8px_30px_rgba(19,55,62,.05)]; }
+  .tag { @apply text-xs font-semibold tracking-[.16em] text-[#a5823c]; }
+  .section-title { @apply mt-4 text-3xl font-semibold tracking-[-.02em] sm:text-4xl; }
+  .label { @apply mb-2 block text-sm font-medium text-[#44585d]; }
+  .input { @apply w-full rounded-xl border border-[#d7dfdc] bg-white px-3 py-3 text-sm outline-none focus:border-[#9a7b3c] focus:ring-2 focus:ring-[#b69755]/15; }
+}
+
 button,
 input,
 select,

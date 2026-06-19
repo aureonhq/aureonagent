@@ -1,23 +1,20 @@
-# Aureon Agent
+# Aureon Insurance & Wealth AI
 
-Aureon Agent is an AI-native startup operating system MVP for moving from founder profile to startup direction, business model, MVP route, website plan, acquisition plan, business-plan outline, and broker marketplace matching.
+AI-powered insurance and wealth broker MVP built with Next.js, React, TypeScript, and Tailwind CSS.
 
-## Run Locally
+## Run locally
 
 ```bash
-pnpm install
-pnpm dev
+npm install
+npm run dev
 ```
 
-The current MVP uses local mock generation in `lib/founder-engine.ts`. Production integration should move generation into API routes backed by Supabase, OpenAI/Anthropic, Clerk, and Stripe.
+The MVP stores intake data, reports, and advisor leads in `localStorage`. The deterministic rule engine is in `lib/riskEngine.ts`; `lib/aiReportService.ts` is the integration point for a future server-side OpenAI API route.
 
 ## Included
 
-- Interactive Next.js MVP workbench
-- Dark mode
-- Business Model Canvas
-- MVP and first-revenue plan
-- Website plan and acquisition plan
-- Broker marketplace prototype
-- Product architecture document
-- Supabase/PostgreSQL schema draft
+- Product landing page
+- Five-step family and financial intake
+- Rule-generated risk and wealth report
+- Advisor matching and lead capture
+- Advisor dashboard with filtering and status management
