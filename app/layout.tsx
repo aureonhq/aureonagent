@@ -5,25 +5,14 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://978044309.github.io/aureonagent/"),
-  title: "Aureon 保单医生 - AI 保单体检",
-  description: "上传保单，使用 AI 整理保障责任、识别保额不足、保障缺失和潜在重复，生成家庭风险体检报告。",
-  keywords: ["AI 保单体检", "保单分析", "家庭保障", "保险经纪人工具", "保障缺口", "Aureon 保单医生"],
-  alternates: {
-    canonical: "https://978044309.github.io/aureonagent/"
-  },
+  title: "AI Workforce - AI 劳动力网络 MVP",
+  description: "企业按结果调用 AI 劳动力，系统自动拆解、报价、匹配人才并推荐交付步骤的 Web MVP。",
+  keywords: ["AI Workforce", "AI 劳动力网络", "任务大厅", "人才匹配", "企业服务", "MVP"],
   openGraph: {
-    title: "Aureon 保单医生 - AI 保单体检",
-    description: "看懂保障责任，识别保障缺口，生成家庭风险体检报告。",
-    url: "https://978044309.github.io/aureonagent/",
-    siteName: "Aureon 保单医生",
-    locale: "zh_CN",
-    type: "website"
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: { index: true, follow: true }
+    title: "AI Workforce",
+    description: "企业按结果调用 AI 劳动力，个人用技能接入网络获得收入。",
+    type: "website",
+    locale: "zh_CN"
   }
 };
 

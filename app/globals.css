@@ -4,14 +4,8 @@
 
 :root {
   color-scheme: light;
-  --background: #f8f7f3;
-  --foreground: #111111;
-}
-
-.dark {
-  color-scheme: dark;
-  --background: #101010;
-  --foreground: #f5f2ea;
+  --background: #f6f7f9;
+  --foreground: #17212b;
 }
 
 * {
@@ -28,16 +22,6 @@ body {
   color: var(--foreground);
 }
 
-@layer components {
-  .primary { @apply inline-flex items-center gap-2 rounded-full bg-[#123d49] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#0b2f38]; }
-  .secondary { @apply inline-flex items-center gap-2 rounded-full border border-[#ced8d4] bg-white px-5 py-3 text-sm font-medium text-[#123d49]; }
-  .card { @apply rounded-2xl border border-[#e0e6e3] bg-white shadow-[0_8px_30px_rgba(19,55,62,.05)]; }
-  .tag { @apply text-xs font-semibold tracking-[.16em] text-[#a5823c]; }
-  .section-title { @apply mt-4 text-3xl font-semibold tracking-[-.02em] sm:text-4xl; }
-  .label { @apply mb-2 block text-sm font-medium text-[#44585d]; }
-  .input { @apply w-full rounded-xl border border-[#d7dfdc] bg-white px-3 py-3 text-sm outline-none focus:border-[#9a7b3c] focus:ring-2 focus:ring-[#b69755]/15; }
-}
-
 button,
 input,
 select,
@@ -45,6 +29,45 @@ textarea {
   font: inherit;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+@layer components {
+  .primary {
+    @apply inline-flex items-center gap-2 rounded-lg bg-[#155eef] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#004eeb];
+  }
+
+  .secondary {
+    @apply inline-flex items-center gap-2 rounded-lg border border-[#d0d5dd] bg-white px-5 py-3 text-sm font-semibold text-[#344054] transition hover:bg-[#f8fafc];
+  }
+
+  .panel {
+    @apply rounded-lg border border-[#e4e7ec] bg-white shadow-[0_8px_30px_rgba(16,24,40,.06)];
+  }
+
+  .nav {
+    @apply rounded-lg px-3 py-2 text-sm font-medium text-[#475467] transition hover:bg-[#f2f4f7] hover:text-[#101828];
+  }
+
+  .navActive {
+    @apply bg-[#eff4ff] text-[#155eef];
+  }
+
+  .eyebrow {
+    @apply text-xs font-bold tracking-[.16em] text-[#155eef];
+  }
+
+  .label {
+    @apply mb-2 block text-sm font-semibold text-[#344054];
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-[#d0d5dd] bg-white px-3 py-3 text-sm text-[#101828] outline-none transition placeholder:text-[#98a2b3] focus:border-[#155eef] focus:ring-4 focus:ring-[#155eef]/10;
+  }
+}
+
 ::selection {
-  background: rgba(15, 118, 110, 0.2);
+  background: rgba(21, 94, 239, 0.18);
 }

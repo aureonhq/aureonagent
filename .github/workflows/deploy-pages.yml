@@ -1,4 +1,4 @@
-name: Deploy Aureon Agent to GitHub Pages
+name: Deploy AI Workforce to GitHub Pages
 
 on:
   push:

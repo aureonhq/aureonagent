@@ -1,164 +1,390 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowRight, BriefcaseBusiness, Check, ChevronLeft, ChevronRight, ClipboardCheck,
-  FileSearch, FileUp, Menu, ShieldCheck, Sparkles, Stethoscope, Users, X
+  ArrowRight,
+  BriefcaseBusiness,
+  CalendarClock,
+  CheckCircle2,
+  Gauge,
+  LayoutDashboard,
+  ListFilter,
+  Menu,
+  Search,
+  Sparkles,
+  UserRound,
+  UsersRound,
+  X
 } from "lucide-react";
-import { AdvisorLead, ClientIntake, LeadStatus, RiskReport } from "@/lib/types";
-import { generateAIReportWithOpenAI } from "@/lib/aiReportService";
+import { createMatches, generateTaskBreakdown, normalizeSkills } from "@/lib/mockAi";
+import { AppData, EnterpriseTask, MatchResult, TalentProfile } from "@/lib/types";
 
-type View = "home" | "checkup" | "report" | "broker" | "dashboard";
-type BrokerApplication = { name: string; city: string; contact: string; role: string; pain: string; price: string; createdAt: string };
+type View = "home" | "post" | "profile" | "market" | "matches" | "admin";
 
-const initial: ClientIntake = {
-  profile: { name: "", age: 35, city: "", maritalStatus: "已婚", hasChildren: true, childrenCount: 1, supportsParents: false, occupation: "", selfEmployed: false },
-  incomeDebt: { annualIncome: 300000, householdIncome: 500000, monthlyExpenses: 20000, mortgage: 1000000, carLoan: 0, otherDebt: 0, hasEmergencyFund: true, reserveMonths: 6 },
-  assets: { cash: 0, stocks: 0, funds: 0, bonds: 0, property: 0, retirement: 0, companyEquity: 0, other: 0 },
-  insurance: { hasLife: true, lifeCoverage: 500000, hasCritical: false, criticalCoverage: 0, hasMedical: true, hasAccident: false, hasAnnuity: false, hasEducation: false, annualPremium: 20000, policyUploaded: false },
-  preferences: { goals: ["保单体检"], riskPreference: "平衡", investmentExperience: "一般", advisorConsent: "先看报告" }
+const seedData: AppData = {
+  tasks: [
+    {
+      id: "task-website",
+      title: "为 B2B SaaS 产品制作官网首屏和定价页",
+      description: "需要根据现有产品说明，完成官网信息架构、首屏文案、定价页布局和可交互前端页面。",
+      budget: 12000,
+      deadline: "2026-07-18",
+      skills: ["产品", "设计", "前端", "文案"],
+      status: "published",
+      createdAt: "2026-06-29T09:00:00.000Z",
+      ai: generateTaskBreakdown("为 B2B SaaS 产品制作官网首屏和定价页", "需要根据现有产品说明，完成官网信息架构、首屏文案、定价页布局和可交互前端页面。", 12000, ["产品", "设计", "前端", "文案"])
+    }
+  ],
+  talents: [
+    {
+      id: "talent-lin",
+      name: "林舟",
+      skills: ["产品", "前端", "AI"],
+      availability: "每周 20 小时",
+      expectedIncome: 9000,
+      experience: "做过 4 个 SaaS 官网和 2 个 AI 工具 MVP，熟悉需求拆解和 React 交付。",
+      createdAt: "2026-06-28T12:00:00.000Z"
+    },
+    {
+      id: "talent-chen",
+      name: "陈若宁",
+      skills: ["设计", "文案", "运营"],
+      availability: "每周 12 小时",
+      expectedIncome: 7000,
+      experience: "擅长创业项目品牌表达、落地页结构和转化文案。",
+      createdAt: "2026-06-27T12:00:00.000Z"
+    }
+  ],
+  matches: []
 };
 
-const checkupSteps = ["上传保单", "家庭责任", "现有保障", "确认提交"];
+function hydrateSeed(): AppData {
+  const matches = createMatches(seedData.tasks[0], seedData.talents);
+  return { ...seedData, matches };
+}
 
 export default function Home() {
   const [view, setView] = useState<View>("home");
-  const [menu, setMenu] = useState(false);
-  const [step, setStep] = useState(0);
-  const [data, setData] = useState<ClientIntake>(initial);
-  const [report, setReport] = useState<RiskReport | null>(null);
-  const [leads, setLeads] = useState<AdvisorLead[]>([]);
-  const [leadModal, setLeadModal] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [data, setData] = useState<AppData>(hydrateSeed());
+  const [selectedTaskId, setSelectedTaskId] = useState(seedData.tasks[0].id);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("aureon-intake");
-      const savedReport = localStorage.getItem("aureon-report");
-      const savedLeads = localStorage.getItem("aureon-leads");
-      if (saved) setData(JSON.parse(saved));
-      if (savedReport) setReport(JSON.parse(savedReport));
-      if (savedLeads) setLeads(JSON.parse(savedLeads));
-    } catch { /* Ignore invalid local demo data. */ }
+    const saved = localStorage.getItem("ai-broker-os-data");
+    if (saved) setData(JSON.parse(saved));
   }, []);
 
-  useEffect(() => { localStorage.setItem("aureon-intake", JSON.stringify(data)); }, [data]);
+  useEffect(() => {
+    localStorage.setItem("ai-broker-os-data", JSON.stringify(data));
+  }, [data]);
+
+  const selectedTask = data.tasks.find((task) => task.id === selectedTaskId) ?? data.tasks[0];
+  const selectedMatches = data.matches.filter((match) => match.taskId === selectedTask?.id);
 
   function navigate(next: View) {
-    setView(next); setMenu(false); window.scrollTo({ top: 0, behavior: "smooth" });
+    setView(next);
+    setMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function generateReport() {
-    const next = await generateAIReportWithOpenAI(data);
-    setReport(next);
-    localStorage.setItem("aureon-report", JSON.stringify(next));
-    navigate("report");
+  function publishTask(task: EnterpriseTask) {
+    const matches = createMatches(task, data.talents);
+    setData((current) => ({
+      ...current,
+      tasks: [task, ...current.tasks],
+      matches: [...matches, ...current.matches.filter((match) => match.taskId !== task.id)]
+    }));
+    setSelectedTaskId(task.id);
+    navigate("matches");
   }
 
-  return <main className="min-h-screen bg-[#f6f7f5] text-[#102b32]">
-    <Header navigate={navigate} menu={menu} setMenu={setMenu} />
-    {view === "home" && <Landing start={() => navigate("checkup")} broker={() => navigate("broker")} />}
-    {view === "checkup" && <Checkup data={data} setData={setData} step={step} setStep={setStep} submit={generateReport} />}
-    {view === "report" && report && <PolicyReport data={data} report={report} requestHelp={() => setLeadModal(true)} />}
-    {view === "broker" && <BrokerPage dashboard={() => navigate("dashboard")} />}
-    {view === "dashboard" && <Dashboard leads={leads} setLeads={setLeads} />}
-    {leadModal && report && <LeadModal data={data} report={report} close={() => setLeadModal(false)} save={(lead) => {
-      const next = [lead, ...leads]; setLeads(next); localStorage.setItem("aureon-leads", JSON.stringify(next)); setLeadModal(false); navigate("dashboard");
-    }} />}
-  </main>;
+  function saveTalent(talent: TalentProfile) {
+    const nextTalents = [talent, ...data.talents];
+    const nextMatches = data.tasks.flatMap((task) => createMatches(task, nextTalents));
+    setData({ ...data, talents: nextTalents, matches: nextMatches });
+    navigate("market");
+  }
+
+  return (
+    <main className="min-h-screen bg-[#f6f7f9] text-[#17212b]">
+      <Header view={view} navigate={navigate} menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
+      {view === "home" && <Landing navigate={navigate} />}
+      {view === "post" && <TaskPost onSubmit={publishTask} />}
+      {view === "profile" && <TalentProfileForm onSubmit={saveTalent} />}
+      {view === "market" && <TaskMarket tasks={data.tasks} selectedTaskId={selectedTaskId} setSelectedTaskId={setSelectedTaskId} navigate={navigate} />}
+      {view === "matches" && selectedTask && <MatchPage task={selectedTask} talents={data.talents} matches={selectedMatches} />}
+      {view === "admin" && <Admin data={data} />}
+    </main>
+  );
 }
 
-function Header({ navigate, menu, setMenu }: { navigate: (v: View) => void; menu: boolean; setMenu: (v: boolean) => void }) {
-  const links: [string, View][] = [["保单体检", "checkup"], ["经纪人合作", "broker"], ["顾问工作台", "dashboard"]];
-  return <header className="sticky top-0 z-40 border-b border-[#dfe5e2] bg-white/95 backdrop-blur">
-    <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5">
-      <button onClick={() => navigate("home")} className="flex items-center gap-2 text-left">
-        <span className="grid h-9 w-9 place-items-center rounded-full bg-[#123d49] text-[#e5c477]"><Stethoscope size={18} /></span>
-        <span><b className="block tracking-wide">AUREON 保单医生</b><small className="text-[10px] tracking-[.14em] text-[#6e7d80]">AI POLICY CHECKUP</small></span>
-      </button>
-      <nav className="hidden items-center gap-7 text-sm md:flex">{links.map(([label, target]) => <button key={target} onClick={() => navigate(target)}>{label}</button>)}<button className="primary" onClick={() => navigate("checkup")}>免费体检</button></nav>
-      <button className="md:hidden" onClick={() => setMenu(!menu)}><Menu /></button>
-    </div>
-    {menu && <div className="grid border-t bg-white p-3 md:hidden">{links.map(([label, target]) => <button className="p-3 text-left" key={target} onClick={() => navigate(target)}>{label}</button>)}</div>}
-  </header>;
+function Header({ view, navigate, menuOpen, setMenuOpen }: { view: View; navigate: (view: View) => void; menuOpen: boolean; setMenuOpen: (open: boolean) => void }) {
+  const links: [View, string][] = [["post", "企业发布"], ["profile", "个人资料"], ["market", "任务大厅"], ["matches", "AI 匹配"], ["admin", "管理后台"]];
+  return (
+    <header className="sticky top-0 z-40 border-b border-[#dde3ea] bg-white/90 backdrop-blur">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5">
+        <button className="flex items-center gap-3" onClick={() => navigate("home")}>
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#155eef] text-white"><Sparkles size={18} /></span>
+          <span className="text-left"><b className="block leading-4">AI Workforce</b><small className="text-[#667085]">AI 劳动力网络 MVP</small></span>
+        </button>
+        <nav className="hidden items-center gap-2 md:flex">
+          {links.map(([target, label]) => <button key={target} onClick={() => navigate(target)} className={`nav ${view === target ? "navActive" : ""}`}>{label}</button>)}
+        </nav>
+        <button className="md:hidden" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</button>
+      </div>
+      {menuOpen && <div className="grid border-t bg-white p-3 md:hidden">{links.map(([target, label]) => <button key={target} className="rounded-lg p-3 text-left" onClick={() => navigate(target)}>{label}</button>)}</div>}
+    </header>
+  );
 }
 
-function Landing({ start, broker }: { start: () => void; broker: () => void }) {
-  return <>
-    <section className="overflow-hidden bg-[radial-gradient(circle_at_80%_10%,#dceae5_0,transparent_34%)]">
-      <div className="mx-auto grid max-w-7xl items-center gap-14 px-5 py-20 lg:grid-cols-[1.05fr_.95fr] lg:py-28">
-        <div>
-          <span className="tag">AI 保单体检 · 不销售保险产品</span>
-          <h1 className="mt-6 text-5xl font-semibold leading-[1.05] tracking-[-.04em] sm:text-6xl">让每一份保单，<br /><span className="text-[#ad873d]">都看得懂。</span></h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-[#607176]">上传保单，AI 帮你整理保障责任，识别保额不足、保障缺失和潜在重复，并生成家庭风险体检报告。</p>
-          <div className="mt-9 flex flex-wrap gap-3"><button onClick={start} className="primary"><FileUp size={17} /> 上传保单开始体检</button><button onClick={broker} className="secondary"><BriefcaseBusiness size={17} /> 我是保险经纪人</button></div>
-          <p className="mt-5 text-xs text-[#7f8d90]">仅提供教育性分析 · 不推荐具体保险、基金或理财产品 · MVP 数据仅保存在本机</p>
+function Landing({ navigate }: { navigate: (view: View) => void }) {
+  return (
+    <>
+      <section className="border-b border-[#e4e7ec] bg-white">
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 py-20 lg:grid-cols-[1.05fr_.95fr]">
+          <div>
+            <span className="eyebrow">AI WORKFORCE NETWORK</span>
+            <h1 className="mt-5 max-w-4xl text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">企业按结果调用 AI 劳动力，个人用技能接入网络获得收入。</h1>
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-[#667085]">这不是招聘平台，也不是兼职平台。AI Workforce 把企业需求拆成可执行工作单元，组合 AI 流程与真人技能，形成可调度、可报价、可验收的劳动力网络。</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <button className="primary" onClick={() => navigate("post")}><BriefcaseBusiness size={18} />发布企业任务</button>
+              <button className="secondary" onClick={() => navigate("profile")}><UserRound size={18} />创建个人资料</button>
+            </div>
+          </div>
+          <div className="panel p-6">
+            <div className="flex items-center justify-between border-b pb-5">
+              <div><span className="eyebrow">LIVE FLOW</span><h2 className="mt-2 text-xl font-semibold">需求到结果的 AI 劳动力调度</h2></div>
+              <Gauge className="text-[#155eef]" />
+            </div>
+            <div className="mt-5 grid gap-3">
+              {["企业提交结果目标和预算", "AI 拆解工作单元与交付物", "系统匹配技能、时间和收入预期", "企业查看推荐执行者与步骤", "后台追踪任务、人才和匹配记录"].map((item, index) => (
+                <div className="flex items-center gap-3 rounded-lg bg-[#f2f4f7] p-4" key={item}>
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white text-sm font-semibold text-[#155eef]">{index + 1}</span>
+                  <span className="font-medium">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="card p-6 shadow-[0_30px_80px_rgba(21,55,62,.13)]">
-          <div className="flex items-start justify-between border-b pb-5"><div><small className="text-[#738286]">AI 保单体检摘要</small><h3 className="mt-1 text-lg font-semibold">家庭保障组合 · 3 份保单</h3></div><span className="rounded-full bg-[#eaf4ef] px-3 py-1 text-xs text-[#39705f]">分析完成</span></div>
-          <div className="grid grid-cols-2 gap-3 py-5">{[["家庭风险", 72], ["保障完整度", 58], ["保额充足度", 46], ["保费压力", 81]].map(([label, score]) => <div className="rounded-2xl bg-[#f3f6f4] p-4" key={String(label)}><small className="text-[#718084]">{label}</small><div className="mt-2 text-3xl font-semibold">{score}<span className="text-sm text-[#8e999b]"> / 100</span></div><div className="mt-3 h-1.5 rounded bg-[#dce4e1]"><div className="h-full rounded bg-[#b7954c]" style={{ width: `${score}%` }} /></div></div>)}</div>
-          <div className="rounded-2xl bg-[#123d49] p-5 text-white"><small className="text-white/60">首要关注</small><p className="mt-2 font-medium">家庭主要收入者寿险保额不足，无法完全覆盖房贷和子女责任。</p></div>
+      </section>
+      <section className="mx-auto grid max-w-7xl gap-5 px-5 py-14 md:grid-cols-3">
+        <Feature icon={<Sparkles />} title="模拟 AI 拆解" body="根据标题、描述、预算和技能生成摘要、里程碑、交付物、风险和建议报价。" />
+        <Feature icon={<UsersRound />} title="劳动力匹配" body="按技能重合、预算匹配度和可工作时间计算推荐分，并输出匹配理由。" />
+        <Feature icon={<LayoutDashboard />} title="后台可见" body="管理后台集中查看企业任务、个人用户和匹配记录，适合创业项目演示。" />
+      </section>
+    </>
+  );
+}
+
+function TaskPost({ onSubmit }: { onSubmit: (task: EnterpriseTask) => void }) {
+  const [form, setForm] = useState({ title: "", description: "", budget: 10000, deadline: "2026-07-20", skills: "产品, 设计, 前端" });
+  const skills = normalizeSkills(form.skills);
+  const ai = useMemo(() => generateTaskBreakdown(form.title, form.description, form.budget, skills), [form.title, form.description, form.budget, form.skills]);
+
+  function submit() {
+    onSubmit({
+      id: crypto.randomUUID(),
+      title: form.title || "未命名任务",
+      description: form.description,
+      budget: form.budget,
+      deadline: form.deadline,
+      skills,
+      status: "published",
+      createdAt: new Date().toISOString(),
+      ai
+    });
+  }
+
+  return (
+    <PageShell eyebrow="ENTERPRISE" title="企业端发布任务">
+      <div className="grid gap-6 lg:grid-cols-[1fr_.9fr]">
+        <div className="panel p-6">
+          <div className="grid gap-4">
+            <Field label="任务标题" value={form.title} onChange={(title) => setForm({ ...form, title })} placeholder="例如：制作产品官网和投放落地页" />
+            <TextArea label="任务描述" value={form.description} onChange={(description) => setForm({ ...form, description })} placeholder="描述目标、交付物、参考资料、验收标准..." />
+            <NumberField label="预算（元）" value={form.budget} onChange={(budget) => setForm({ ...form, budget })} />
+            <Field label="截止时间" type="date" value={form.deadline} onChange={(deadline) => setForm({ ...form, deadline })} />
+            <Field label="所需技能" value={form.skills} onChange={(skills) => setForm({ ...form, skills })} placeholder="产品, 设计, 前端, AI" />
+            <button className="primary justify-center" disabled={!form.title || !form.description} onClick={submit}><Sparkles size={18} />发布并生成匹配</button>
+          </div>
+        </div>
+        <AiBreakdown ai={ai} skills={skills} />
+      </div>
+    </PageShell>
+  );
+}
+
+function TalentProfileForm({ onSubmit }: { onSubmit: (talent: TalentProfile) => void }) {
+  const [form, setForm] = useState({ name: "", skills: "产品, 前端, AI", availability: "每周 20 小时", expectedIncome: 8000, experience: "" });
+  function submit() {
+    onSubmit({
+      id: crypto.randomUUID(),
+      name: form.name,
+      skills: normalizeSkills(form.skills),
+      availability: form.availability,
+      expectedIncome: form.expectedIncome,
+      experience: form.experience,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  return (
+    <PageShell eyebrow="TALENT" title="个人端资料页面">
+      <div className="panel max-w-3xl p-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="姓名" value={form.name} onChange={(name) => setForm({ ...form, name })} />
+          <Field label="技能标签" value={form.skills} onChange={(skills) => setForm({ ...form, skills })} />
+          <Field label="可工作时间" value={form.availability} onChange={(availability) => setForm({ ...form, availability })} />
+          <NumberField label="期望收入（元/任务）" value={form.expectedIncome} onChange={(expectedIncome) => setForm({ ...form, expectedIncome })} />
+          <div className="md:col-span-2"><TextArea label="过往经验" value={form.experience} onChange={(experience) => setForm({ ...form, experience })} /></div>
+          <button className="primary justify-center md:col-span-2" disabled={!form.name} onClick={submit}><CheckCircle2 size={18} />保存资料并参与匹配</button>
         </div>
       </div>
-    </section>
-
-    <section className="mx-auto max-w-7xl px-5 py-20"><div className="text-center"><span className="tag">POLICY CHECKUP, NOT PRODUCT SALES</span><h2 className="section-title">AI 分析保单，但不替你做购买决定</h2><p className="mx-auto mt-4 max-w-2xl text-[#69797d]">先把已有保障看清楚，再决定是否需要专业人士协助。</p></div><div className="mt-12 grid gap-5 md:grid-cols-3">{[[FileSearch,"看懂保障责任","将分散在保单中的保额、期限和保障责任整理成清晰摘要。"],[ShieldCheck,"识别保障问题","检查保额不足、基础保障缺失、潜在重复和保费压力。"],[ClipboardCheck,"生成家庭报告","结合家庭责任和负债，输出风险评分与下一步核对清单。"]].map(([Icon, title, body], i) => <article className="card p-7" key={String(title)}><span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#eaf2ef] text-[#1d5961]"><Icon size={22} /></span><div className="mt-7 text-xs text-[#ae893e]">0{i + 1}</div><h3 className="mt-2 text-xl font-semibold">{String(title)}</h3><p className="mt-3 leading-7 text-[#68777b]">{String(body)}</p></article>)}</div></section>
-
-    <section className="bg-[#123d49] text-white"><div className="mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-2"><div><span className="text-xs tracking-[.16em] text-[#dfc178]">FOR INSURANCE PROFESSIONALS</span><h2 className="mt-4 text-3xl font-semibold sm:text-4xl">先服务 20 个经纪人，<br />再谈更大的平台。</h2><p className="mt-5 max-w-xl leading-7 text-white/65">Aureon 正在招募保险经纪人共同验证：自动整理保单、生成客户报告和辅助需求分析，究竟能节省多少时间。</p><button onClick={broker} className="mt-7 rounded-full bg-[#dfc178] px-6 py-3 font-medium text-[#123d49]">申请成为首批体验官</button></div><div className="grid gap-4 sm:grid-cols-2">{[["¥99 / 月","个人版","保单体检与客户报告"],["¥199 / 月","专业版","批量客户管理与跟进"]].map(([price, name, detail]) => <div className="rounded-2xl border border-white/15 p-6" key={name}><span className="text-2xl font-semibold text-[#dfc178]">{price}</span><h3 className="mt-5 text-lg font-semibold">{name}</h3><p className="mt-2 text-sm text-white/60">{detail}</p><small className="mt-6 block text-white/40">访谈验证价，暂未正式收费</small></div>)}</div></div></section>
-
-    <section className="mx-auto max-w-6xl px-5 py-20"><span className="tag">PRODUCT ROADMAP</span><h2 className="section-title">从保险入口，逐步理解家庭风险</h2><div className="mt-10 grid gap-3 sm:grid-cols-5">{["保单体检","家庭风险","资产配置","退休规划","财富传承"].map((item, i) => <div className={`rounded-2xl border p-5 ${i === 0 ? "border-[#123d49] bg-[#123d49] text-white" : "border-[#dfe5e2] bg-white text-[#899497]"}`} key={item}><small>阶段 {i + 1}</small><h3 className="mt-3 font-semibold">{item}</h3>{i === 0 && <span className="mt-3 inline-block rounded-full bg-white/10 px-2 py-1 text-[10px]">当前聚焦</span>}</div>)}</div></section>
-    <Footer />
-  </>;
+    </PageShell>
+  );
 }
 
-function Checkup({ data, setData, step, setStep, submit }: { data: ClientIntake; setData: (d: ClientIntake) => void; step: number; setStep: (n: number) => void; submit: () => void }) {
-  const update = (section: keyof ClientIntake, key: string, value: unknown) => setData({ ...data, [section]: { ...(data[section] as object), [key]: value } } as ClientIntake);
-  const p = data.profile, f = data.incomeDebt, ins = data.insurance;
-  return <div className="mx-auto max-w-5xl px-5 py-10"><span className="tag">FREE POLICY CHECKUP</span><h1 className="mt-3 text-3xl font-semibold">AI 保单体检</h1><p className="mt-2 text-[#6f7e82]">当前 MVP 不解析文件内容，请根据保单填写关键数据完成规则分析。</p>
-    <div className="my-8 flex overflow-x-auto">{checkupSteps.map((label, i) => <button key={label} onClick={() => i <= step && setStep(i)} className={`min-w-36 flex-1 border-b-2 pb-4 text-left text-sm ${step === i ? "border-[#b08b42] font-semibold" : "border-[#dce4e1] text-[#899598]"}`}><span className="mr-2">{i < step ? "✓" : i + 1}</span>{label}</button>)}</div>
-    <div className="card p-6 sm:p-9"><div className="grid gap-5 md:grid-cols-2">
-      {step === 0 && <div className="md:col-span-2"><label className={`grid min-h-64 cursor-pointer place-items-center rounded-2xl border-2 border-dashed p-8 text-center ${ins.policyUploaded ? "border-[#4f806f] bg-[#edf5f1]" : "border-[#cbd6d2] bg-[#fafbf9]"}`}><div><FileUp className="mx-auto text-[#3b6b62]" size={34} /><h2 className="mt-5 text-xl font-semibold">{ins.policyUploaded ? "保单已选择" : "上传保单 PDF 或截图"}</h2><p className="mt-2 text-sm text-[#748286]">支持 PDF、JPG、PNG；演示版本仅记录上传状态，不会传输文件。</p><span className="secondary mt-5">选择文件</span></div><input className="hidden" type="file" accept=".pdf,image/*" onChange={e => update("insurance", "policyUploaded", Boolean(e.target.files?.length))} /></label><div className="mt-5 rounded-xl bg-[#f3f6f4] p-4 text-sm leading-6 text-[#5f7074]">隐私说明：MVP 数据仅保存在你的浏览器 localStorage，不上传服务器。正式版将采用加密存储、访问控制和保单脱敏。</div></div>}
-      {step === 1 && <><Field label="姓名" value={p.name} onChange={v => update("profile", "name", v)} /><NumberField label="年龄" value={p.age} onChange={v => update("profile", "age", v)} /><Field label="所在城市" value={p.city} onChange={v => update("profile", "city", v)} /><Select label="婚姻状态" value={p.maritalStatus} options={["单身", "已婚", "离异"]} onChange={v => update("profile", "maritalStatus", v)} /><NumberField label="家庭年收入" value={f.householdIncome} money onChange={v => update("incomeDebt", "householdIncome", v)} /><NumberField label="房贷及其他负债" value={f.mortgage + f.carLoan + f.otherDebt} money onChange={v => update("incomeDebt", "mortgage", v)} /><Toggle label="有孩子" value={p.hasChildren} onChange={v => update("profile", "hasChildren", v)} /><Toggle label="需要赡养父母" value={p.supportsParents} onChange={v => update("profile", "supportsParents", v)} /></>}
-      {step === 2 && <><Toggle label="已有寿险" value={ins.hasLife} onChange={v => update("insurance", "hasLife", v)} /><NumberField label="寿险保额" value={ins.lifeCoverage} money onChange={v => update("insurance", "lifeCoverage", v)} /><Toggle label="已有重疾险" value={ins.hasCritical} onChange={v => update("insurance", "hasCritical", v)} /><NumberField label="重疾险保额" value={ins.criticalCoverage} money onChange={v => update("insurance", "criticalCoverage", v)} /><Toggle label="已有医疗险" value={ins.hasMedical} onChange={v => update("insurance", "hasMedical", v)} /><Toggle label="已有意外险" value={ins.hasAccident} onChange={v => update("insurance", "hasAccident", v)} /><NumberField label="每年总保费" value={ins.annualPremium} money onChange={v => update("insurance", "annualPremium", v)} /><NumberField label="现金储备可覆盖月数" value={f.reserveMonths} onChange={v => update("incomeDebt", "reserveMonths", v)} /></>}
-      {step === 3 && <div className="md:col-span-2"><h2 className="text-xl font-semibold">确认分析范围</h2><div className="mt-5 grid gap-3 sm:grid-cols-2">{["家庭责任与收入中断风险", "寿险保额是否充足", "重疾、医疗和意外保障缺口", "保费占收入比例与现金流压力"].map(item => <p className="flex gap-3 rounded-xl bg-[#f3f6f4] p-4" key={item}><Check className="shrink-0 text-[#3e7364]" size={18} />{item}</p>)}</div><div className="mt-6 rounded-xl border border-[#ead8b5] bg-[#fffaf0] p-4 text-sm leading-6 text-[#725b2e]">系统不会推荐任何具体保险产品、基金或投资方案。结果仅用于教育与信息整理，不构成保险、投资、税务或法律建议。</div><Select label="分析后是否愿意接受专业顾问协助" value={data.preferences.advisorConsent} options={["先看报告", "是", "否"]} onChange={v => update("preferences", "advisorConsent", v)} /></div>}
-    </div><div className="mt-8 flex justify-between border-t pt-6"><button className="secondary disabled:opacity-30" disabled={step === 0} onClick={() => setStep(step - 1)}><ChevronLeft size={17} />上一步</button>{step < 3 ? <button className="primary" onClick={() => setStep(step + 1)}>下一步<ChevronRight size={17} /></button> : <button className="primary" onClick={submit}><Sparkles size={17} />生成体检报告</button>}</div></div>
-  </div>;
+function TaskMarket({ tasks, selectedTaskId, setSelectedTaskId, navigate }: { tasks: EnterpriseTask[]; selectedTaskId: string; setSelectedTaskId: (id: string) => void; navigate: (view: View) => void }) {
+  const [skill, setSkill] = useState("");
+  const [budget, setBudget] = useState("");
+  const [deadline, setDeadline] = useState("");
+  const filtered = tasks.filter((task) => (!skill || task.skills.includes(skill)) && (!budget || task.budget >= Number(budget)) && (!deadline || task.deadline <= deadline));
+  const skills = Array.from(new Set(tasks.flatMap((task) => task.skills)));
+
+  return (
+    <PageShell eyebrow="MARKET" title="任务大厅">
+      <div className="mb-5 grid gap-3 rounded-xl border border-[#d0d5dd] bg-white p-4 md:grid-cols-4">
+        <Select label="按技能筛选" value={skill} onChange={setSkill} options={["", ...skills]} />
+        <Field label="最低预算" type="number" value={budget} onChange={setBudget} />
+        <Field label="截止时间早于" type="date" value={deadline} onChange={setDeadline} />
+        <div className="flex items-end"><button className="secondary w-full justify-center" onClick={() => { setSkill(""); setBudget(""); setDeadline(""); }}><ListFilter size={18} />重置筛选</button></div>
+      </div>
+      <div className="grid gap-4">
+        {filtered.map((task) => (
+          <article className={`panel p-5 ${selectedTaskId === task.id ? "ring-2 ring-[#155eef]" : ""}`} key={task.id}>
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">{task.title}</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-[#667085]">{task.description}</p>
+                <div className="mt-4 flex flex-wrap gap-2">{task.skills.map((item) => <Badge key={item}>{item}</Badge>)}</div>
+              </div>
+              <div className="min-w-52 rounded-lg bg-[#f2f4f7] p-4 text-sm">
+                <b className="block text-lg">¥{task.budget.toLocaleString()}</b>
+                <span className="mt-1 flex items-center gap-1 text-[#667085]"><CalendarClock size={15} />{task.deadline}</span>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button className="secondary" onClick={() => setSelectedTaskId(task.id)}><Search size={18} />选中任务</button>
+              <button className="primary" onClick={() => { setSelectedTaskId(task.id); navigate("matches"); }}>查看 AI 匹配<ArrowRight size={18} /></button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </PageShell>
+  );
 }
 
-function PolicyReport({ data, report, requestHelp }: { data: ClientIntake; report: RiskReport; requestHelp: () => void }) {
-  const completeness = report.insuranceGapScore;
-  const scores = [["家庭风险健康度", report.familyRiskScore], ["保障完整度", completeness], ["现金流承受力", report.cashFlowHealthScore]];
-  return <div className="mx-auto max-w-6xl px-5 py-10"><span className="tag">EDUCATIONAL POLICY CHECKUP</span><h1 className="mt-3 text-3xl font-semibold">{data.profile.name || "你的"}家庭保单体检报告</h1><p className="mt-2 text-sm text-[#778589]">规则引擎 v1.0 · {new Date(report.createdAt).toLocaleString("zh-CN")}</p>
-    <div className="mt-8 grid gap-4 md:grid-cols-3">{scores.map(([label, score]) => <Score key={String(label)} label={String(label)} score={Number(score)} />)}</div>
-    <section className="card mt-6 p-6 sm:p-8"><h2 className="flex items-center gap-2 text-xl font-semibold"><ShieldCheck />保障缺口分析</h2><div className="mt-5 divide-y">{report.insuranceFindings.map(f => <div className="py-5 first:pt-0" key={f.title}><div className="flex items-center justify-between gap-4"><h3 className="font-semibold">{f.title}</h3><span className={`rounded-full px-3 py-1 text-xs ${f.level === "高" ? "bg-[#f8e8e5] text-[#9d4b45]" : f.level === "中" ? "bg-[#faf1dc] text-[#886a2c]" : "bg-[#e9f3ee] text-[#3d705f]"}`}>{f.level}风险</span></div><p className="mt-1 text-sm text-[#748286]">当前状态：{f.status}</p><p className="mt-3 text-sm leading-6">分析建议：{f.advice}</p></div>)}</div></section>
-    <section className="card mt-6 p-6 sm:p-8"><h2 className="flex items-center gap-2 text-xl font-semibold"><ClipboardCheck />下一步核对清单</h2><div className="mt-5 grid gap-3 md:grid-cols-2">{report.actionPlan.filter(x => !x.includes("资产") && !x.includes("全球")).map((item, i) => <p className="rounded-xl border border-[#dfe5e2] p-4" key={item}><span className="mr-3 rounded-full bg-[#123d49] px-2 py-1 text-xs text-white">{i + 1}</span>{item}</p>)}</div></section>
-    <section className="mt-6 rounded-3xl bg-[#123d49] p-8 text-white sm:p-10"><span className="text-xs tracking-[.15em] text-[#dfc178]">HUMAN REVIEW</span><h2 className="mt-3 text-2xl font-semibold">需要专业人士帮你进一步核对吗？</h2><p className="mt-3 max-w-2xl text-white/65">提交需求后，可由合作保险经纪人根据原始保单继续核对。平台不保证匹配结果，也不代替持牌机构提供服务。</p><button onClick={requestHelp} className="mt-6 rounded-full bg-[#dfc178] px-6 py-3 font-medium text-[#123d49]">需要顾问协助</button></section>
-    <p className="mx-auto mt-8 max-w-4xl text-center text-xs leading-6 text-[#7b888b]">本报告仅为 AI 生成的教育性分析，不构成保险购买建议、投资建议、税务或法律建议。系统不推荐具体保险、基金或理财产品。</p>
-  </div>;
+function MatchPage({ task, talents, matches }: { task: EnterpriseTask; talents: TalentProfile[]; matches: MatchResult[] }) {
+  return (
+    <PageShell eyebrow="AI MATCHING" title="AI 匹配结果页面">
+      <div className="grid gap-6 lg:grid-cols-[.85fr_1.15fr]">
+        <AiBreakdown ai={task.ai} skills={task.skills} task={task} />
+        <div className="grid gap-4">
+          {matches.map((match) => {
+            const talent = talents.find((item) => item.id === match.talentId);
+            if (!talent) return null;
+            return (
+              <article className="panel p-5" key={match.id}>
+                <div className="flex items-start justify-between gap-4">
+                  <div><h2 className="text-xl font-semibold">{talent.name}</h2><p className="mt-1 text-sm text-[#667085]">{talent.availability} · 期望 ¥{talent.expectedIncome.toLocaleString()}</p></div>
+                  <span className="rounded-lg bg-[#ecfdf3] px-3 py-2 text-sm font-semibold text-[#027a48]">匹配 {match.score}</span>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">{talent.skills.map((skill) => <Badge key={skill}>{skill}</Badge>)}</div>
+                <h3 className="mt-5 font-semibold">匹配理由</h3>
+                <ul className="mt-2 grid gap-2 text-sm text-[#475467]">{match.reasons.map((reason) => <li className="rounded-lg bg-[#f2f4f7] p-3" key={reason}>{reason}</li>)}</ul>
+                <h3 className="mt-5 font-semibold">推荐执行步骤</h3>
+                <ol className="mt-2 grid gap-2 text-sm text-[#475467]">{match.executionSteps.map((step, index) => <li className="rounded-lg border border-[#e4e7ec] p-3" key={step}>{index + 1}. {step}</li>)}</ol>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </PageShell>
+  );
 }
 
-function BrokerPage({ dashboard }: { dashboard: () => void }) {
-  const [form, setForm] = useState<BrokerApplication>({ name: "", city: "深圳", contact: "", role: "保险经纪人", pain: "分析保单和生成方案", price: "99元/月", createdAt: "" });
-  const [saved, setSaved] = useState(false);
-  function submit() { const records = JSON.parse(localStorage.getItem("aureon-broker-interviews") || "[]"); localStorage.setItem("aureon-broker-interviews", JSON.stringify([{ ...form, createdAt: new Date().toISOString() }, ...records])); setSaved(true); }
-  return <div className="mx-auto max-w-7xl px-5 py-14"><div className="grid gap-12 lg:grid-cols-[1fr_.9fr]"><div><span className="tag">20 BROKER INTERVIEWS</span><h1 className="mt-4 text-4xl font-semibold leading-tight">我们正在寻找首批<br />保险经纪人共创用户</h1><p className="mt-5 max-w-xl leading-7 text-[#65767a]">不是让你立刻采购软件，而是先回答一个问题：如果 AI 能自动分析保单、生成客户报告、辅助需求分析，它能否节省你每天最宝贵的时间？</p><div className="mt-8 grid gap-3">{["保单信息结构化整理", "保障缺口与重复风险提示", "一键生成客户教育报告", "客户线索与跟进状态管理"].map(x => <p className="flex gap-3 rounded-xl bg-white p-4" key={x}><Check className="text-[#3d7463]" size={18} />{x}</p>)}</div><button onClick={dashboard} className="secondary mt-7">查看顾问工作台演示<ArrowRight size={17} /></button></div><div className="card p-7"><span className="text-xs text-[#ae893e]">15 分钟产品访谈</span><h2 className="mt-2 text-2xl font-semibold">申请首批体验官</h2>{saved ? <div className="mt-8 rounded-2xl bg-[#eaf4ef] p-8 text-center"><Check className="mx-auto text-[#39705f]" /><h3 className="mt-3 font-semibold">已记录申请</h3><p className="mt-2 text-sm text-[#65776f]">演示数据已保存在当前浏览器。</p></div> : <div className="mt-6 grid gap-4"><Field label="姓名" value={form.name} onChange={v => setForm({ ...form, name: v })} /><Field label="手机 / 微信" value={form.contact} onChange={v => setForm({ ...form, contact: v })} /><Select label="所在城市" value={form.city} options={["深圳", "上海", "广州", "北京", "汕头", "其他"]} onChange={v => setForm({ ...form, city: v })} /><Select label="你的角色" value={form.role} options={["保险经纪人", "保险经纪公司", "独立代理人", "财富顾问"]} onChange={v => setForm({ ...form, role: v })} /><Select label="每天最耗时间的工作" value={form.pain} options={["分析保单和生成方案", "客户教育", "需求分析", "客户跟进", "其他"]} onChange={v => setForm({ ...form, pain: v })} /><Select label="可接受的月费" value={form.price} options={["暂不付费", "99元/月", "199元/月", "取决于效果"]} onChange={v => setForm({ ...form, price: v })} /><button className="primary justify-center disabled:opacity-40" disabled={!form.name || !form.contact} onClick={submit}>提交访谈申请</button></div>}</div></div></div>;
+function Admin({ data }: { data: AppData }) {
+  return (
+    <PageShell eyebrow="ADMIN" title="管理后台">
+      <div className="grid gap-4 md:grid-cols-3">
+        <Stat label="企业任务" value={data.tasks.length} />
+        <Stat label="个人用户" value={data.talents.length} />
+        <Stat label="匹配记录" value={data.matches.length} />
+      </div>
+      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <AdminList title="企业任务" items={data.tasks.map((task) => `${task.title} · ¥${task.budget.toLocaleString()} · ${task.status}`)} />
+        <AdminList title="个人用户" items={data.talents.map((talent) => `${talent.name} · ${talent.skills.join("、")} · ¥${talent.expectedIncome.toLocaleString()}`)} />
+        <AdminList title="匹配记录" items={data.matches.map((match) => `${match.taskId.slice(0, 8)} → ${match.talentId.slice(0, 10)} · ${match.score}`)} />
+      </div>
+    </PageShell>
+  );
 }
 
-function Dashboard({ leads, setLeads }: { leads: AdvisorLead[]; setLeads: (v: AdvisorLead[]) => void }) {
-  const [city, setCity] = useState("");
-  const filtered = leads.filter(x => !city || x.city.includes(city)).sort((a, b) => a.report.insuranceGapScore - b.report.insuranceGapScore);
-  function update(id: string, key: "status" | "note", value: string) { const next = leads.map(x => x.id === id ? { ...x, [key]: value } : x) as AdvisorLead[]; setLeads(next); localStorage.setItem("aureon-leads", JSON.stringify(next)); }
-  return <div className="mx-auto max-w-7xl px-5 py-10"><span className="tag">BROKER WORKSPACE MVP</span><h1 className="mt-3 text-3xl font-semibold">保单体检客户工作台</h1><p className="mt-2 text-[#718084]">按保障缺口优先级跟进客户，记录沟通状态和经纪人备注。</p><div className="my-7 flex flex-wrap gap-3"><input className="input max-w-56" placeholder="按城市筛选" value={city} onChange={e => setCity(e.target.value)} /><div className="rounded-xl bg-white px-5 py-3 text-sm"><b className="mr-2 text-xl">{leads.length}</b>客户线索</div></div>{filtered.length === 0 ? <div className="card py-20 text-center"><Users className="mx-auto text-[#8b9995]" /><h3 className="mt-4 font-semibold">暂无体检客户</h3><p className="mt-2 text-sm text-[#748286]">用户完成报告并请求协助后，线索会进入这里。</p></div> : <div className="grid gap-4">{filtered.map(lead => <article className="card p-5" key={lead.id}><div className="grid gap-5 lg:grid-cols-[1fr_1fr_auto]"><div><h3 className="text-lg font-semibold">{lead.name}</h3><p className="text-sm text-[#748286]">{lead.city} · {lead.client.profile.age} 岁 · {lead.contact}</p><p className="mt-3 text-sm">需求：{lead.needType}</p></div><div className="grid grid-cols-2 gap-3"><Mini label="家庭风险" value={String(lead.report.familyRiskScore)} /><Mini label="保障完整度" value={String(lead.report.insuranceGapScore)} /></div><select className="input self-start" value={lead.status} onChange={e => update(lead.id, "status", e.target.value)}>{["New Lead", "Contacted", "In Progress", "Converted", "Closed"].map(x => <option key={x}>{x}</option>)}</select></div><textarea className="input mt-4" placeholder="添加经纪人备注" value={lead.note} onChange={e => update(lead.id, "note", e.target.value)} /></article>)}</div>}</div>;
+function AiBreakdown({ ai, skills, task }: { ai: EnterpriseTask["ai"]; skills: string[]; task?: EnterpriseTask }) {
+  return (
+    <aside className="panel p-6">
+      <div className="flex items-center gap-2 text-[#155eef]"><Sparkles size={18} /><b>AI 自动拆解任务</b></div>
+      {task && <h2 className="mt-3 text-xl font-semibold">{task.title}</h2>}
+      <p className="mt-3 text-sm leading-6 text-[#667085]">{ai.summary}</p>
+      <div className="mt-4 flex flex-wrap gap-2">{skills.map((skill) => <Badge key={skill}>{skill}</Badge>)}</div>
+      <Block title="里程碑" items={ai.milestones} />
+      <Block title="交付物" items={ai.deliverables} />
+      <Block title="风险提示" items={ai.risks} />
+      <div className="mt-5 rounded-xl bg-[#eff4ff] p-4">
+        <span className="text-sm text-[#475467]">AI 生成建议报价</span>
+        <b className="mt-1 block text-2xl text-[#155eef]">¥{ai.suggestedQuote.min.toLocaleString()} - ¥{ai.suggestedQuote.max.toLocaleString()}</b>
+        <p className="mt-2 text-xs text-[#667085]">{ai.suggestedQuote.basis}</p>
+      </div>
+    </aside>
+  );
 }
 
-function LeadModal({ data, report, close, save }: { data: ClientIntake; report: RiskReport; close: () => void; save: (v: AdvisorLead) => void }) {
-  const [form, setForm] = useState({ name: data.profile.name, contact: "", email: "", city: data.profile.city, needType: "保单人工核对", note: "" });
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-[#09252c]/60 p-4"><div className="w-full max-w-xl rounded-3xl bg-white p-7"><button className="float-right" onClick={close}><X /></button><span className="tag">REQUEST HUMAN REVIEW</span><h2 className="mt-2 text-2xl font-semibold">提交专业协助需求</h2><div className="mt-6 grid gap-4 sm:grid-cols-2"><Field label="姓名" value={form.name} onChange={v => setForm({ ...form, name: v })} /><Field label="手机 / 微信" value={form.contact} onChange={v => setForm({ ...form, contact: v })} /><Field label="邮箱" value={form.email} onChange={v => setForm({ ...form, email: v })} /><Field label="城市" value={form.city} onChange={v => setForm({ ...form, city: v })} /><Select label="需求" value={form.needType} options={["保单人工核对", "家庭保障需求分析", "咨询经纪人"]} onChange={v => setForm({ ...form, needType: v })} /></div><button disabled={!form.name || !form.contact} className="primary mt-6 w-full justify-center disabled:opacity-40" onClick={() => save({ ...form, id: crypto.randomUUID(), status: "New Lead" as LeadStatus, createdAt: new Date().toISOString(), client: data, report })}>提交需求</button></div></div>;
+function PageShell({ eyebrow, title, children }: { eyebrow: string; title: string; children: React.ReactNode }) {
+  return <section className="mx-auto max-w-7xl px-5 py-10"><span className="eyebrow">{eyebrow}</span><h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1><div className="mt-7">{children}</div></section>;
 }
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) { return <label><span className="label">{label}</span><input className="input" value={value} onChange={e => onChange(e.target.value)} /></label>; }
-function NumberField({ label, value, onChange, money }: { label: string; value: number; onChange: (v: number) => void; money?: boolean }) { return <label><span className="label">{label}</span><div className="relative">{money && <span className="absolute left-3 top-3 text-[#7b898c]">¥</span>}<input type="number" min="0" className={`input ${money ? "pl-8" : ""}`} value={value} onChange={e => onChange(Number(e.target.value))} /></div></label>; }
-function Select({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) { return <label className="block"><span className="label">{label}</span><select className="input" value={value} onChange={e => onChange(e.target.value)}>{options.map(x => <option key={x}>{x}</option>)}</select></label>; }
-function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) { return <label className="flex items-center justify-between rounded-xl border border-[#dce3e0] p-4"><span className="text-sm font-medium">{label}</span><button type="button" onClick={() => onChange(!value)} className={`relative h-6 w-11 rounded-full ${value ? "bg-[#123d49]" : "bg-[#ccd5d2]"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${value ? "left-6" : "left-1"}`} /></button></label>; }
-function Score({ label, score }: { label: string; score: number }) { return <div className="card p-5"><small className="text-[#748286]">{label}</small><div className="mt-2 text-3xl font-semibold">{score}<span className="text-sm text-[#8c9799]"> / 100</span></div><div className="mt-4 h-2 rounded bg-[#e4e9e7]"><div className="h-full rounded bg-[#b4934c]" style={{ width: `${score}%` }} /></div></div>; }
-function Mini({ label, value }: { label: string; value: string }) { return <div className="rounded-xl bg-[#f1f5f3] p-3"><small className="text-[#748286]">{label}</small><b className="mt-1 block">{value}</b></div>; }
-function Footer() { return <footer className="border-t bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-8 text-sm text-[#798689] sm:flex-row sm:justify-between"><b className="text-[#123d49]">AUREON 保单医生</b><span>AI 保单体检，不销售、不推荐具体金融产品</span><span>© 2026 Aureon</span></div></footer>; }
+function Feature({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return <article className="panel p-6"><span className="grid h-11 w-11 place-items-center rounded-lg bg-[#eff4ff] text-[#155eef]">{icon}</span><h2 className="mt-5 text-xl font-semibold">{title}</h2><p className="mt-3 leading-7 text-[#667085]">{body}</p></article>;
+}
+
+function Field({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) {
+  return <label><span className="label">{label}</span><input className="input" type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return <label><span className="label">{label}</span><input className="input" type="number" min="0" value={value} onChange={(event) => onChange(Number(event.target.value))} /></label>;
+}
+
+function TextArea({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
+  return <label><span className="label">{label}</span><textarea className="input min-h-32 resize-y" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[] }) {
+  return <label><span className="label">{label}</span><select className="input" value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option} value={option}>{option || "全部"}</option>)}</select></label>;
+}
+
+function Badge({ children }: { children: React.ReactNode }) {
+  return <span className="rounded-md bg-[#eef2f6] px-2.5 py-1 text-xs font-medium text-[#344054]">{children}</span>;
+}
+
+function Block({ title, items }: { title: string; items: string[] }) {
+  return <div className="mt-5"><h3 className="font-semibold">{title}</h3><ul className="mt-2 grid gap-2 text-sm text-[#475467]">{items.map((item) => <li className="rounded-lg bg-[#f8fafc] p-3" key={item}>{item}</li>)}</ul></div>;
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return <div className="panel p-5"><span className="text-sm text-[#667085]">{label}</span><b className="mt-2 block text-3xl">{value}</b></div>;
+}
+
+function AdminList({ title, items }: { title: string; items: string[] }) {
+  return <section className="panel p-5"><h2 className="font-semibold">{title}</h2><div className="mt-4 grid gap-2">{items.map((item) => <p className="rounded-lg bg-[#f8fafc] p-3 text-sm text-[#475467]" key={item}>{item}</p>)}</div></section>;
+}
