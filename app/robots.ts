@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/"
     },
-    sitemap: "https://978044309.github.io/aureonagent/sitemap.xml"
+    sitemap: "https://aureonhq.github.io/aureonagent/sitemap.xml"
   };
 }
