@@ -1,6 +1,16 @@
 ﻿import { EnterpriseTask, MatchResult, TalentProfile, TaskApplication, PlatformOrder } from "./types";
 import { supabase } from "./supabaseClient";
 
+export type AdminEntityKind = "task" | "talent" | "match" | "application" | "order";
+
+const adminTables: Record<AdminEntityKind, string> = {
+  task: "enterprise_tasks",
+  talent: "talent_profiles",
+  match: "task_matches",
+  application: "task_applications",
+  order: "platform_orders"
+};
+
 export async function loadCloudData() {
   if (!supabase) return null;
 
@@ -129,6 +139,21 @@ export async function saveCloudOrder(order: PlatformOrder) {
 export async function updateCloudOrderStatus(orderId: string, status: PlatformOrder["status"]) {
   if (!supabase) return;
   const { error } = await supabase.from("platform_orders").update({ status }).eq("id", orderId);
+  if (error) throw new Error(error.message);
+}
+
+export async function isCurrentUserAdmin() {
+  if (!supabase) return false;
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData.user) return false;
+  const { data, error } = await supabase.from("admin_users").select("user_id").eq("user_id", userData.user.id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return Boolean(data);
+}
+
+export async function deleteCloudEntity(kind: AdminEntityKind, id: string) {
+  if (!supabase) return;
+  const { error } = await supabase.from(adminTables[kind]).delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 

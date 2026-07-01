@@ -73,6 +73,12 @@ create table if not exists public.platform_orders (
   created_at timestamptz not null
 );
 
+create table if not exists public.admin_users (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.admin_events (
   id text primary key,
   actor_type text not null,
@@ -105,7 +111,20 @@ alter table public.talent_profiles enable row level security;
 alter table public.task_matches enable row level security;
 alter table public.task_applications enable row level security;
 alter table public.platform_orders enable row level security;
+alter table public.admin_users enable row level security;
 alter table public.admin_events enable row level security;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.admin_users
+    where user_id = auth.uid()
+  );
+$$;
 
 drop policy if exists "authenticated users can read tasks" on public.enterprise_tasks;
 drop policy if exists "authenticated users can write tasks" on public.enterprise_tasks;
@@ -125,6 +144,14 @@ drop policy if exists "authenticated users can update applications" on public.ta
 drop policy if exists "authenticated users can read orders" on public.platform_orders;
 drop policy if exists "authenticated users can write orders" on public.platform_orders;
 drop policy if exists "authenticated users can update orders" on public.platform_orders;
+drop policy if exists "admins can delete tasks" on public.enterprise_tasks;
+drop policy if exists "admins can delete breakdowns" on public.ai_task_breakdowns;
+drop policy if exists "admins can delete talents" on public.talent_profiles;
+drop policy if exists "admins can delete matches" on public.task_matches;
+drop policy if exists "admins can delete applications" on public.task_applications;
+drop policy if exists "admins can delete orders" on public.platform_orders;
+drop policy if exists "admins can read admin users" on public.admin_users;
+drop policy if exists "users can read own admin row" on public.admin_users;
 drop policy if exists "authenticated users can read events" on public.admin_events;
 drop policy if exists "authenticated users can write events" on public.admin_events;
 
@@ -151,6 +178,15 @@ create policy "authenticated users can update applications" on public.task_appli
 create policy "authenticated users can read orders" on public.platform_orders for select to authenticated using (true);
 create policy "authenticated users can write orders" on public.platform_orders for insert to authenticated with check (true);
 create policy "authenticated users can update orders" on public.platform_orders for update to authenticated using (true) with check (true);
+
+create policy "admins can delete tasks" on public.enterprise_tasks for delete to authenticated using (public.is_admin());
+create policy "admins can delete breakdowns" on public.ai_task_breakdowns for delete to authenticated using (public.is_admin());
+create policy "admins can delete talents" on public.talent_profiles for delete to authenticated using (public.is_admin());
+create policy "admins can delete matches" on public.task_matches for delete to authenticated using (public.is_admin());
+create policy "admins can delete applications" on public.task_applications for delete to authenticated using (public.is_admin());
+create policy "admins can delete orders" on public.platform_orders for delete to authenticated using (public.is_admin());
+
+create policy "users can read own admin row" on public.admin_users for select to authenticated using (user_id = auth.uid());
 
 create policy "authenticated users can read events" on public.admin_events for select to authenticated using (true);
 create policy "authenticated users can write events" on public.admin_events for insert to authenticated with check (true);
