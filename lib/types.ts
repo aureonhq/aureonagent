@@ -29,6 +29,7 @@ export interface EnterpriseTask {
 export interface TalentProfile {
   id: string;
   name: string;
+  contact: string;
   skills: string[];
   availability: string;
   expectedIncome: number;
@@ -41,6 +42,7 @@ export interface MatchResult {
   taskId: string;
   talentId: string;
   score: number;
+  status: "recommended" | "selected" | "contacted";
   reasons: string[];
   executionSteps: string[];
   createdAt: string;

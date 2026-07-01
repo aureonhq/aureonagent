@@ -61,6 +61,7 @@ export async function saveCloudTalent(talent: TalentProfile) {
     name: talent.name,
     skills_json: talent.skills,
     availability: talent.availability,
+    contact: talent.contact,
     expected_income: talent.expectedIncome,
     experience: talent.experience,
     created_at: talent.createdAt,
@@ -78,9 +79,15 @@ export async function saveCloudMatches(matches: MatchResult[]) {
     score: match.score,
     reasons_json: match.reasons,
     execution_steps_json: match.executionSteps,
-    status: "recommended",
+    status: match.status,
     created_at: match.createdAt
   })));
+  if (error) throw new Error(error.message);
+}
+
+export async function updateCloudMatchStatus(matchId: string, status: MatchResult["status"]) {
+  if (!supabase) return;
+  const { error } = await supabase.from("task_matches").update({ status }).eq("id", matchId);
   if (error) throw new Error(error.message);
 }
 
@@ -119,6 +126,7 @@ function mapTalent(row: any): TalentProfile {
   return {
     id: row.id,
     name: row.name,
+    contact: row.contact ?? "",
     skills: row.skills_json ?? [],
     availability: row.availability,
     expectedIncome: row.expected_income,
@@ -133,6 +141,7 @@ function mapMatch(row: any): MatchResult {
     taskId: row.task_id,
     talentId: row.talent_id,
     score: row.score,
+    status: row.status ?? "recommended",
     reasons: row.reasons_json ?? [],
     executionSteps: row.execution_steps_json ?? [],
     createdAt: row.created_at

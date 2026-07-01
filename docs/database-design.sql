@@ -30,6 +30,7 @@ create table if not exists public.ai_task_breakdowns (
 create table if not exists public.talent_profiles (
   id text primary key,
   name text not null,
+  contact text not null default '',
   skills_json jsonb not null default '[]'::jsonb,
   availability text not null,
   expected_income integer not null,
@@ -64,6 +65,9 @@ create index if not exists idx_enterprise_tasks_deadline on public.enterprise_ta
 create index if not exists idx_task_matches_task_id on public.task_matches(task_id);
 create index if not exists idx_task_matches_talent_id on public.task_matches(talent_id);
 create index if not exists idx_task_matches_score on public.task_matches(score);
+
+alter table public.talent_profiles add column if not exists contact text not null default '';
+alter table public.task_matches add column if not exists status text not null default 'recommended';
 
 alter table public.enterprise_tasks enable row level security;
 alter table public.ai_task_breakdowns enable row level security;

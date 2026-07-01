@@ -17,8 +17,8 @@ import {
   UsersRound,
   X
 } from "lucide-react";
+import { loadCloudData, saveCloudMatches, saveCloudTalent, saveCloudTask, updateCloudMatchStatus } from "@/lib/cloudStore";
 import { createMatches, generateTaskBreakdown, normalizeSkills } from "@/lib/mockAi";
-import { loadCloudData, saveCloudMatches, saveCloudTalent, saveCloudTask } from "@/lib/cloudStore";
 import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
 import { AppData, EnterpriseTask, MatchResult, TalentProfile } from "@/lib/types";
 
@@ -42,6 +42,7 @@ const seedData: AppData = {
     {
       id: "talent-lin",
       name: "林舟",
+      contact: "lin@example.com",
       skills: ["产品", "前端", "AI"],
       availability: "每周 20 小时",
       expectedIncome: 9000,
@@ -51,6 +52,7 @@ const seedData: AppData = {
     {
       id: "talent-chen",
       name: "陈若宁",
+      contact: "chen@example.com",
       skills: ["设计", "文案", "运营"],
       availability: "每周 12 小时",
       expectedIncome: 7000,
@@ -62,8 +64,7 @@ const seedData: AppData = {
 };
 
 function hydrateSeed(): AppData {
-  const matches = createMatches(seedData.tasks[0], seedData.talents);
-  return { ...seedData, matches };
+  return { ...seedData, matches: createMatches(seedData.tasks[0], seedData.talents) };
 }
 
 export default function Home() {
@@ -75,12 +76,12 @@ export default function Home() {
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem("ai-broker-os-data");
+    const saved = localStorage.getItem("ai-workforce-data");
     if (saved) setData(JSON.parse(saved));
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) localStorage.setItem("ai-broker-os-data", JSON.stringify(data));
+    if (!isSupabaseConfigured) localStorage.setItem("ai-workforce-data", JSON.stringify(data));
   }, [data]);
 
   useEffect(() => {
@@ -121,8 +122,9 @@ export default function Home() {
     if (session) {
       try {
         await saveCloudTask(task);
+        await Promise.all(data.talents.map((talent) => saveCloudTalent(talent)));
         await saveCloudMatches(matches);
-        setNotice("任务已发布到云端，其他登录用户可看到。");
+        setNotice("任务已发布到云端，并生成匹配结果。");
       } catch (error) {
         setNotice(`云端保存失败：${error instanceof Error ? error.message : "未知错误"}`);
       }
@@ -137,6 +139,7 @@ export default function Home() {
     setData({ ...data, talents: nextTalents, matches: nextMatches });
     if (session) {
       try {
+        await Promise.all(data.tasks.map((task) => saveCloudTask(task)));
         await saveCloudTalent(talent);
         await saveCloudMatches(nextMatches);
         setNotice("个人资料已保存到云端，并重新生成匹配。");
@@ -145,6 +148,20 @@ export default function Home() {
       }
     }
     navigate("market");
+  }
+
+  async function setMatchStatus(matchId: string, status: MatchResult["status"]) {
+    setData((current) => ({
+      ...current,
+      matches: current.matches.map((match) => match.id === matchId ? { ...match, status } : match)
+    }));
+    if (session) {
+      try {
+        await updateCloudMatchStatus(matchId, status);
+      } catch (error) {
+        setNotice(`云端状态更新失败：${error instanceof Error ? error.message : "未知错误"}`);
+      }
+    }
   }
 
   return (
@@ -156,7 +173,7 @@ export default function Home() {
       {view === "post" && <TaskPost onSubmit={publishTask} />}
       {view === "profile" && <TalentProfileForm onSubmit={saveTalent} />}
       {view === "market" && <TaskMarket tasks={data.tasks} selectedTaskId={selectedTaskId} setSelectedTaskId={setSelectedTaskId} navigate={navigate} />}
-      {view === "matches" && selectedTask && <MatchPage task={selectedTask} talents={data.talents} matches={selectedMatches} />}
+      {view === "matches" && selectedTask && <MatchPage task={selectedTask} talents={data.talents} matches={selectedMatches} onStatusChange={setMatchStatus} setNotice={setNotice} />}
       {view === "admin" && <Admin data={data} />}
     </main>
   );
@@ -188,10 +205,7 @@ function AuthPage({ session, setNotice }: { session: Session | null; setNotice: 
   const [loading, setLoading] = useState(false);
 
   async function signUp() {
-    if (!supabase) {
-      setNotice("还没有配置 Supabase 环境变量，当前只能本地演示。");
-      return;
-    }
+    if (!supabase) return setNotice("还没有配置 Supabase 环境变量，当前只能本地演示。");
     setLoading(true);
     const { error } = await supabase.auth.signUp({ email, password });
     setLoading(false);
@@ -199,10 +213,7 @@ function AuthPage({ session, setNotice }: { session: Session | null; setNotice: 
   }
 
   async function signIn() {
-    if (!supabase) {
-      setNotice("还没有配置 Supabase 环境变量，当前只能本地演示。");
-      return;
-    }
+    if (!supabase) return setNotice("还没有配置 Supabase 环境变量，当前只能本地演示。");
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -269,7 +280,7 @@ function Landing({ navigate }: { navigate: (view: View) => void }) {
               <Gauge className="text-[#155eef]" />
             </div>
             <div className="mt-5 grid gap-3">
-              {["企业提交结果目标和预算", "AI 拆解工作单元与交付物", "系统匹配技能、时间和收入预期", "企业查看推荐执行者与步骤", "后台追踪任务、人才和匹配记录"].map((item, index) => (
+              {["企业提交结果目标和预算", "AI 拆解工作单元与交付物", "系统匹配技能、时间和收入预期", "企业选中执行者并联系", "后台追踪任务、人才和匹配记录"].map((item, index) => (
                 <div className="flex items-center gap-3 rounded-lg bg-[#f2f4f7] p-4" key={item}>
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white text-sm font-semibold text-[#155eef]">{index + 1}</span>
                   <span className="font-medium">{item}</span>
@@ -282,7 +293,7 @@ function Landing({ navigate }: { navigate: (view: View) => void }) {
       <section className="mx-auto grid max-w-7xl gap-5 px-5 py-14 md:grid-cols-3">
         <Feature icon={<Sparkles />} title="模拟 AI 拆解" body="根据标题、描述、预算和技能生成摘要、里程碑、交付物、风险和建议报价。" />
         <Feature icon={<UsersRound />} title="劳动力匹配" body="按技能重合、预算匹配度和可工作时间计算推荐分，并输出匹配理由。" />
-        <Feature icon={<LayoutDashboard />} title="后台可见" body="管理后台集中查看企业任务、个人用户和匹配记录，适合创业项目演示。" />
+        <Feature icon={<LayoutDashboard />} title="后台可见" body="管理后台集中查看企业任务、个人用户、匹配记录和联系状态。" />
       </section>
     </>
   );
@@ -327,11 +338,12 @@ function TaskPost({ onSubmit }: { onSubmit: (task: EnterpriseTask) => void }) {
 }
 
 function TalentProfileForm({ onSubmit }: { onSubmit: (talent: TalentProfile) => void }) {
-  const [form, setForm] = useState({ name: "", skills: "产品, 前端, AI", availability: "每周 20 小时", expectedIncome: 8000, experience: "" });
+  const [form, setForm] = useState({ name: "", contact: "", skills: "产品, 前端, AI", availability: "每周 20 小时", expectedIncome: 8000, experience: "" });
   function submit() {
     onSubmit({
       id: crypto.randomUUID(),
       name: form.name,
+      contact: form.contact,
       skills: normalizeSkills(form.skills),
       availability: form.availability,
       expectedIncome: form.expectedIncome,
@@ -345,11 +357,12 @@ function TalentProfileForm({ onSubmit }: { onSubmit: (talent: TalentProfile) => 
       <div className="panel max-w-3xl p-6">
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="姓名" value={form.name} onChange={(name) => setForm({ ...form, name })} />
+          <Field label="联系方式（邮箱/微信/电话）" value={form.contact} onChange={(contact) => setForm({ ...form, contact })} />
           <Field label="技能标签" value={form.skills} onChange={(skills) => setForm({ ...form, skills })} />
           <Field label="可工作时间" value={form.availability} onChange={(availability) => setForm({ ...form, availability })} />
           <NumberField label="期望收入（元/任务）" value={form.expectedIncome} onChange={(expectedIncome) => setForm({ ...form, expectedIncome })} />
           <div className="md:col-span-2"><TextArea label="过往经验" value={form.experience} onChange={(experience) => setForm({ ...form, experience })} /></div>
-          <button className="primary justify-center md:col-span-2" disabled={!form.name} onClick={submit}><CheckCircle2 size={18} />保存资料并参与匹配</button>
+          <button className="primary justify-center md:col-span-2" disabled={!form.name || !form.contact} onClick={submit}><CheckCircle2 size={18} />保存资料并参与匹配</button>
         </div>
       </div>
     </PageShell>
@@ -396,7 +409,7 @@ function TaskMarket({ tasks, selectedTaskId, setSelectedTaskId, navigate }: { ta
   );
 }
 
-function MatchPage({ task, talents, matches }: { task: EnterpriseTask; talents: TalentProfile[]; matches: MatchResult[] }) {
+function MatchPage({ task, talents, matches, onStatusChange, setNotice }: { task: EnterpriseTask; talents: TalentProfile[]; matches: MatchResult[]; onStatusChange: (matchId: string, status: MatchResult["status"]) => void; setNotice: (value: string) => void }) {
   return (
     <PageShell eyebrow="AI MATCHING" title="AI 匹配结果页面">
       <div className="grid gap-6 lg:grid-cols-[.85fr_1.15fr]">
@@ -405,13 +418,36 @@ function MatchPage({ task, talents, matches }: { task: EnterpriseTask; talents: 
           {matches.map((match) => {
             const talent = talents.find((item) => item.id === match.talentId);
             if (!talent) return null;
+            const isUnlocked = match.status === "selected" || match.status === "contacted";
             return (
               <article className="panel p-5" key={match.id}>
                 <div className="flex items-start justify-between gap-4">
                   <div><h2 className="text-xl font-semibold">{talent.name}</h2><p className="mt-1 text-sm text-[#667085]">{talent.availability} · 期望 ¥{talent.expectedIncome.toLocaleString()}</p></div>
-                  <span className="rounded-lg bg-[#ecfdf3] px-3 py-2 text-sm font-semibold text-[#027a48]">匹配 {match.score}</span>
+                  <div className="grid gap-2 text-right">
+                    <span className="rounded-lg bg-[#ecfdf3] px-3 py-2 text-sm font-semibold text-[#027a48]">匹配 {match.score}</span>
+                    <span className="text-xs text-[#667085]">{match.status === "contacted" ? "已联系" : match.status === "selected" ? "已选中" : "推荐中"}</span>
+                  </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">{talent.skills.map((skill) => <Badge key={skill}>{skill}</Badge>)}</div>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button className="primary" onClick={() => onStatusChange(match.id, "selected")}>选中执行者</button>
+                  <button className="secondary" onClick={async () => {
+                    await onStatusChange(match.id, "contacted");
+                    if (talent.contact) {
+                      await navigator.clipboard?.writeText(talent.contact);
+                      setNotice(`已复制 ${talent.name} 的联系方式：${talent.contact}`);
+                    } else {
+                      setNotice(`${talent.name} 暂未填写联系方式。`);
+                    }
+                  }}>联系 TA</button>
+                </div>
+                {isUnlocked && (
+                  <div className="mt-4 rounded-lg border border-[#b2ddff] bg-[#eff8ff] p-4 text-sm text-[#1849a9]">
+                    <b className="block">联系方式</b>
+                    <span>{talent.contact || "该执行者还没有填写联系方式"}</span>
+                    <p className="mt-2 text-[#475467]">建议先发送任务摘要、预算、截止时间和验收标准，确认对方是否接受排期和报价。</p>
+                  </div>
+                )}
                 <h3 className="mt-5 font-semibold">匹配理由</h3>
                 <ul className="mt-2 grid gap-2 text-sm text-[#475467]">{match.reasons.map((reason) => <li className="rounded-lg bg-[#f2f4f7] p-3" key={reason}>{reason}</li>)}</ul>
                 <h3 className="mt-5 font-semibold">推荐执行步骤</h3>
@@ -435,8 +471,8 @@ function Admin({ data }: { data: AppData }) {
       </div>
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <AdminList title="企业任务" items={data.tasks.map((task) => `${task.title} · ¥${task.budget.toLocaleString()} · ${task.status}`)} />
-        <AdminList title="个人用户" items={data.talents.map((talent) => `${talent.name} · ${talent.skills.join("、")} · ¥${talent.expectedIncome.toLocaleString()}`)} />
-        <AdminList title="匹配记录" items={data.matches.map((match) => `${match.taskId.slice(0, 8)} → ${match.talentId.slice(0, 10)} · ${match.score}`)} />
+        <AdminList title="个人用户" items={data.talents.map((talent) => `${talent.name} · ${talent.contact || "未填联系方式"} · ${talent.skills.join("、")} · ¥${talent.expectedIncome.toLocaleString()}`)} />
+        <AdminList title="匹配记录" items={data.matches.map((match) => `${match.taskId.slice(0, 8)} → ${match.talentId.slice(0, 10)} · ${match.score} · ${match.status}`)} />
       </div>
     </PageShell>
   );

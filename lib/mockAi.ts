@@ -64,6 +64,7 @@ export function createMatches(task: EnterpriseTask, talents: TalentProfile[]): M
         taskId: task.id,
         talentId: talent.id,
         score,
+        status: "recommended" as const,
         reasons: [
           shared.length ? `技能重合：${shared.join("、")}` : "技能重合较少，需要人工复核",
           talent.expectedIncome <= task.budget ? "期望收入在预算范围内" : "期望收入高于预算，需调整范围或报价",
